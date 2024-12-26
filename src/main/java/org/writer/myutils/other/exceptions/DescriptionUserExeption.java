@@ -7,7 +7,8 @@ package org.writer.myutils.other.exceptions;
  */
 public enum DescriptionUserExeption {
 
-    OBJECTS_FOR_REPORT_NOT_FOUND_EXCEPTION("В переданной коллекции объектов для генерации отчётов не найдено. Разметьте объекты аннотацией @CsvClass библиотеки и попробуйте еще раз");
+    OBJECTS_FOR_REPORT_NOT_FOUND_EXCEPTION("В переданной коллекции объектов для генерации отчётов не найдено. Разметьте объекты аннотацией @CsvClass библиотеки и попробуйте еще раз"),
+    LOCAL_VARIABLE_IS_EMPTY("Локальная переменная не может быть пустой");
 
     private String enumDescription;
 

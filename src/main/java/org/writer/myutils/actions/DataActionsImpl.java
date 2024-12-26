@@ -1,8 +1,6 @@
 package org.writer.myutils.actions;
 
 import lombok.extern.slf4j.Slf4j;
-import org.writer.myutils.annotations.CsvClass;
-import org.writer.myutils.annotations.CsvField;
 import org.writer.myutils.other.exceptions.EntitiesForParseNotFoundExceptions;
 
 import java.lang.annotation.Annotation;
@@ -43,40 +41,29 @@ public class DataActionsImpl implements DataActions {
         }
     }
 
+    /**
+     * Проверяет наличие переданной аннотации в объекте
+     *
+     * @param hashMapWithAnnotations Map с объектом-примером и аннотациями этого объекта
+     * @param typeAnnotation Аннотация, наличие которой пытаемся проверить
+     * @param <T> Тип аннотации
+     */
     private <T> void checkThatAnnotationPresence(Map<Object, Annotation[]> hashMapWithAnnotations, T typeAnnotation) {
         try {
             hashMapWithAnnotations.entrySet().removeIf(entry -> {
                 boolean hasCsvClassAnnotation = Arrays.stream(entry.getValue())
                         .anyMatch(a -> a.annotationType() == typeAnnotation);
                 boolean isEnumKey = entry.getKey().getClass().isEnum();
+                boolean isPrimitiveKey = entry.getKey().getClass().isPrimitive();
+                boolean isArrayKey = entry.getKey().getClass().isArray();
 
-                return hasCsvClassAnnotation && isEnumKey;
+                return hasCsvClassAnnotation && (isEnumKey || isPrimitiveKey|| isArrayKey);
             });
             if (hashMapWithAnnotations.isEmpty()) {
                 throw new EntitiesForParseNotFoundExceptions(OBJECTS_FOR_REPORT_NOT_FOUND_EXCEPTION.getEnumDescription());
             }
         } catch (EntitiesForParseNotFoundExceptions e) {
             log.error("Возникла ошибка: " + e);
-        }
-    }
-
-    public boolean test(List<?> list) {
-        Map<Object, Field[]> mapWithFieldsObjects = createMapWithObjectAndArrayFields(list);
-        for (Map.Entry<Object, Field[]> entry : mapWithFieldsObjects.entrySet()) {
-            Object key = entry.getKey();
-            Field[] value = entry.getValue();
-            Arrays.stream(value).forEach(f -> {
-                Class<?> fieldClassType = f.getType();
-                if (fieldClassType.isInterface()) {
-                   if(f.isAnnotationPresent(CsvField.class)){
-                       Annotation annotation = f.getAnnotation(CsvField.class);
-                       if(annotation != null && f.getAnnotation(CsvField.class).nestedCollectionClass() != null) {
-
-                       }
-                   }
-                }
-            });
-            break;
         }
     }
 }
