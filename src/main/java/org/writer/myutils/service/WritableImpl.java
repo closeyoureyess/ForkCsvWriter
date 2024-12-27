@@ -22,6 +22,7 @@ public class WritableImpl implements Writable {
 
     @Override
     public void writeToFile(List<?> data, String fileName) {
+        log.info("start");
         dataActions.filterAnnotationInputList(data, CsvClass.class);
         Map<Object, Field[]> mapMapWithObjectAndArrayFields = dataActions.createMapWithObjectAndArrayFields(data);
         try {
@@ -30,11 +31,19 @@ public class WritableImpl implements Writable {
             log.error("Возникла ошибка: " + e);
         }
         for (String s : listData) {
-            log.info(s);
+            System.out.println(s);
         }
     }
 
-    private Optional<String> iterableObjectAndHisFields(Map<Object, Field[]> mapMapWithObjectAndArrayFields, Integer recursionFlag) throws IllegalAccessException, VariableNotExistsException {
+    /**
+     * Метод, позволяющий перебрать объект и его поля, в т.ч содержимое этих полей
+     *
+     * @param mapMapWithObjectAndArrayFields Map с объектами и полями этого объекта
+     * @param recursionFlag Локальный флаг для рекурсии
+     * @throws IllegalAccessException
+     * @throws VariableNotExistsException
+     */
+    private void iterableObjectAndHisFields(Map<Object, Field[]> mapMapWithObjectAndArrayFields, Integer recursionFlag) throws IllegalAccessException, VariableNotExistsException {
         Optional<String> optionalS = Optional.empty();
         for (Map.Entry<Object, Field[]> entry : mapMapWithObjectAndArrayFields.entrySet()) {
             Object key = entry.getKey(); // Класс
@@ -43,33 +52,47 @@ public class WritableImpl implements Writable {
                 field.setAccessible(true);
                 Class<?> typeClassField = field.getType();
                 Object classFieldObject = field.get(key);
-                optionalS = determineTypeField(typeClassField, classFieldObject, recursionFlag);
+                determineTypeField(typeClassField, classFieldObject, recursionFlag);
             }
-            listData.set(listData.size() - 1, listData.get(listData.size() - 1) + CARRIAGE);
+            addSemicolonOrCarriageForResultRow();
         }
-        return optionalS;
     }
 
-    private Optional<String> determineTypeField(Class<?> typeClassField, Object classFieldObject, Integer recursionFlag) throws IllegalAccessException, VariableNotExistsException {
+    private void addSemicolonOrCarriageForResultRow() {
+        String lastElement = listData.get(listData.size() - 1);
+        if (lastElement != null && lastElement.contains(SEMICOLON)) {
+            listData.set(listData.size() - 1, lastElement + CARRIAGE);
+        } else if (lastElement != null && !lastElement.contains(SEMICOLON)) {
+            listData.set(listData.size() - 1, lastElement + SEMICOLON + CARRIAGE);
+        }
+    }
+
+    /**
+     * Метод, позволяющий определить тип переданного поля
+     *
+     * @param typeClassField объект Class для удобной работы с типами
+     * @param classFieldObject Сам объект класса из поля
+     * @param recursionFlag Флаг для рекурсии
+     * @throws IllegalAccessException
+     * @throws VariableNotExistsException
+     */
+    private void determineTypeField(Class<?> typeClassField, Object classFieldObject, Integer recursionFlag) throws IllegalAccessException, VariableNotExistsException {
         Optional<String[]> arrayWithItems;
         if (classFieldObject instanceof Number || classFieldObject instanceof String || classFieldObject instanceof Boolean ||
                 classFieldObject instanceof Character || classFieldObject instanceof Enum) { // Объект - простой тип?
             if (recursionFlag.equals(ZERO)) {
                 listData.add(classFieldObject + SEMICOLON);
-            } else if (recursionFlag.equals(ONE)) {
-                return Optional.of(classFieldObject.toString());
             }
         } else if (typeClassField.isArray()) { // Объект - массив?
             arrayWithItems = iterableItemsArrayField(classFieldObject);
-            arrayWithItems.ifPresentOrElse(items -> listData.add(String.join(COMMA, items)), () -> listData.add(SPACE));
+            arrayWithItems.ifPresent(items -> listData.add(String.join(COMMA, items) + SEMICOLON));
         } else if (typeClassField.isInterface()) { // Объект - интерфейс-коллекция?
             arrayWithItems = iterableItemsCollectionField(classFieldObject);
-            arrayWithItems.ifPresentOrElse(items -> listData.add(String.join(COMMA, items)), () -> listData.add(SPACE));
+            arrayWithItems.ifPresent(strings -> listData.add(String.join(COMMA, strings)));
         } else { // Объект - пользовательский класс?
             List<?> listWithObject = List.of(classFieldObject);
             iterableObjectAndHisFields(dataActions.createMapWithObjectAndArrayFields(listWithObject), recursionFlag);
         }
-        return Optional.empty();
     }
 
     private Optional<String[]> iterableItemsCollectionField(Object collectionObject) throws IllegalAccessException, VariableNotExistsException {
@@ -88,18 +111,12 @@ public class WritableImpl implements Writable {
 
     private String[] handleItemsListField(List<?> listFromField) throws IllegalAccessException, VariableNotExistsException {
         Object objectFromField = listFromField.get(ZERO);
-        String[] elementsFromArray;
-        boolean typeMyList = detectArrayPrimitiveOrNotPrimitive(objectFromField, objectFromField.getClass());
+        String[] elementsFromArray = null;
+        boolean typeMyList = detectArrayPrimitiveOrNotPrimitive(objectFromField);
         if (typeMyList) {
             elementsFromArray = listFromField.stream().map(Object::toString).toArray(String[]::new);
         } else {
-            elementsFromArray = new String[listFromField.size()];
-            for (int a = 0; a < elementsFromArray.length; a++) {
-                Object arraysObject = listFromField.get(a); // Получить 1 объект из листа
-                List<?> listWithListsObject = List.of(arraysObject); // Сделать List с объектом
-                callRecursionForHandleObjectArray(elementsFromArray, listWithListsObject, a);
-            }
-            addCurlyBraceByStringArray(elementsFromArray);
+            callRecursionForHandleObjectArray(listFromField);
         }
         return elementsFromArray;
     }
@@ -113,7 +130,7 @@ public class WritableImpl implements Writable {
             throw new VariableNotExistsException(LOCAL_VARIABLE_IS_EMPTY.getEnumDescription());
         }
         String[] elementsFromArray;
-        boolean typeMySet = detectArrayPrimitiveOrNotPrimitive(objectFromField, objectFromField.getClass());
+        boolean typeMySet = detectArrayPrimitiveOrNotPrimitive(objectFromField);
         if (typeMySet) {
             elementsFromArray = setFromField.stream().map(Object::toString).toArray(String[]::new);
         } else {
@@ -122,70 +139,98 @@ public class WritableImpl implements Writable {
             for (int a = 0; a < elementsFromArray.length; a++) {
                 Object arraysObject = listFromField.get(a); // Получить 1 объект из листа
                 List<?> listWithListsObject = List.of(arraysObject); // Сделать List с объектом
-                callRecursionForHandleObjectArray(elementsFromArray, listWithListsObject, a);
+                callRecursionForHandleObjectArray(listWithListsObject);
             }
-            addCurlyBraceByStringArray(elementsFromArray);
         }
         return elementsFromArray;
     }
 
+    /**
+     * Метод, позволяющий достать содержимое из Map, если простые типы -
+     *
+     * @param mapFromField
+     * @return
+     * @throws IllegalAccessException
+     * @throws VariableNotExistsException
+     */
     private String[] handleItemsMapField(Map<?, ?> mapFromField) throws IllegalAccessException, VariableNotExistsException {
-        int counter = 0;
+        int counterKey = 0;
+        int counterValue = 1;
         Object key;
         Object value;
         String[] elementsFromArray;
         String[] localStringArray;
-        String[] glueKeyValueStringArray = new String[mapFromField.size()];
+        String[] glueKeyValueStringArray = new String[mapFromField.size() * 2];
         for (Map.Entry<?, ?> mapEntry : mapFromField.entrySet()) {
             key = mapEntry.getKey();
             value = mapEntry.getValue();
             List<?> listWithKeys = List.of(key);
             List<?> listWithValues = List.of(value);
             elementsFromArray = handleItemsListField(listWithKeys);
-            glueKeyValueStringArray[counter] = elementsFromArray[0];
+            glueKeyValueStringArray[counterKey] = elementsFromArray[0];
             localStringArray = handleItemsListField(listWithValues);
-            glueKeyValueStringArray[counter + 1] = localStringArray[1];
-            counter++;
+            glueKeyValueStringArray[counterValue] = localStringArray[0];
+            counterKey+=2;
+            counterValue+=2;
         }
         return glueKeyValueStringArray;
     }
 
+    /**
+     * Метод, позволяющий достать содержимое из массива(который является полем в классе), через рекурсию перебрать его, рез-ты внутри
+     * рекурсии(если массив состоит из объектов, а не простых типов, будут добавены в List внутри рекурсии), если из простых типов
+     *
+     * @param arrayObject Массив, являющийся полем в классе
+     * @return Массив строк с перебранными элементами массива
+     * @throws IllegalAccessException
+     * @throws VariableNotExistsException
+     */
     private Optional<String[]> iterableItemsArrayField(Object arrayObject) throws IllegalAccessException, VariableNotExistsException {
         int lengthUnknownArray = Array.getLength(arrayObject); // Получить массив из Object
         if (lengthUnknownArray != 0) { // Если массив не пустой, то вычислить, примитивный ли это массив или нет\
-            String[] elementsFromArray = new String[lengthUnknownArray];
+            String[] elementsFromArray = null;
             Object elementArrayFromArray = Array.get(arrayObject, 0);
-            boolean typeMyArray = detectArrayPrimitiveOrNotPrimitive(elementArrayFromArray, elementArrayFromArray.getClass()); // Массив из объектов или примитивов?
+            boolean typeMyArray = detectArrayPrimitiveOrNotPrimitive(elementArrayFromArray); // Массив из объектов или примитивов?
             if (typeMyArray) { // Примитивный массив
+                elementsFromArray = new String[lengthUnknownArray];
                 for (int a = 0; a < elementsFromArray.length; a++) {
                     elementsFromArray[a] = Array.get(arrayObject, a).toString();
                 }
             } else { //Массив объектов
-                for (int a = 0; a < elementsFromArray.length; a++) {
+                for (int a = 0; a < lengthUnknownArray; a++) {
                     Object arraysObject = Array.get(arrayObject, a); // Получить 1 объект из массива
                     List<?> listWithArraysObject = List.of(arraysObject); // Сделать List с объектом
-                    callRecursionForHandleObjectArray(elementsFromArray, listWithArraysObject, a); // ???
+                    callRecursionForHandleObjectArray(listWithArraysObject); // ???
                 }
-                addCurlyBraceByStringArray(elementsFromArray);
             }
-            return Optional.of(elementsFromArray);
+            return Optional.ofNullable(elementsFromArray);
         } else {
             return Optional.empty();
         }
     }
 
-    private void callRecursionForHandleObjectArray(String[] elementsFromArray, List<?> listWithObjectFromArrayOrList, int countExternalCycle) throws IllegalAccessException, VariableNotExistsException {
+    /**
+     * Метод, преобразующий переданную коллекци/массив в Map с объектами, полями этих объектов, и позволяющий далее
+     * рекурсивно перебрать все элементы этой коллекции/массива из Map
+     *
+     * @param listWithObjectFromArrayOrList List с коллекцией/элементами из массива(эл-ты массива перебираются по одному, т.е в List всегда будет
+     *                                     передан только 1 элемент)
+     * @throws IllegalAccessException
+     * @throws VariableNotExistsException
+     */
+    private void callRecursionForHandleObjectArray(List<?> listWithObjectFromArrayOrList) throws IllegalAccessException, VariableNotExistsException {
         Map<Object, Field[]> mapMapWithObjectAndArrayFields = dataActions.createMapWithObjectAndArrayFields(listWithObjectFromArrayOrList); // Сделать Map с объектом и массивом его полей
-        Optional<String> optionalS = iterableObjectAndHisFields(mapMapWithObjectAndArrayFields, ONE); // Вызвать рекурсию, чтобы разобрать каждый объект
-        optionalS.ifPresent(s -> elementsFromArray[countExternalCycle] = s);
+        iterableObjectAndHisFields(mapMapWithObjectAndArrayFields, ZERO); // Вызвать рекурсию, чтобы разобрать каждый объект
     }
 
-    private void addCurlyBraceByStringArray(String[] elementsFromArray) {
-        elementsFromArray[ZERO] = CURLY_BRACE_OPEN + elementsFromArray[ZERO];
-        elementsFromArray[elementsFromArray.length - 1] = elementsFromArray[elementsFromArray.length - 1] + CURLY_BRACE_CLOSE;
-    }
-
-    private boolean detectArrayPrimitiveOrNotPrimitive(Object arrayObject, Class<?> typeClassArrayObject) {
-        return typeClassArrayObject.isPrimitive() || arrayObject instanceof String;
+    /**
+     * Метод, позволяющий узнать, явлется ли переданный элемент коллекции простым типом, или это объект(если возвращается false)
+     *
+     * @param arrayObject Объект, который получили из коллекции или массива
+     * @return true - объект простой тип, false - переданный Object является объектом, коллекция/массив состоят не из простых типов
+     */
+    private boolean detectArrayPrimitiveOrNotPrimitive(Object arrayObject) {
+        return arrayObject instanceof Number || arrayObject instanceof String || arrayObject instanceof Boolean ||
+                arrayObject instanceof Character || arrayObject instanceof Enum;
     }
 }

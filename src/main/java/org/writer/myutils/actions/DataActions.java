@@ -4,6 +4,9 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Интерфейс, предоставляющий методы для взаимодействия с полями, объектами полей
+ */
 public interface DataActions {
 
     /**
