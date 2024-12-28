@@ -8,7 +8,8 @@ package org.writer.myutils.other.exceptions;
 public enum DescriptionUserExeption {
 
     OBJECTS_FOR_REPORT_NOT_FOUND_EXCEPTION("В переданной коллекции объектов для генерации отчётов не найдено. Разметьте объекты аннотацией @CsvClass библиотеки и попробуйте еще раз"),
-    LOCAL_VARIABLE_IS_EMPTY("Локальная переменная не может быть пустой");
+    LOCAL_VARIABLE_IS_EMPTY("Локальная переменная не может быть пустой"),
+    INVALID_FORMAT_FILE("Файл имеет недопустимый формат, запись возможна только в .csv. Измените формат и попробуйте еще раз");
 
     private String enumDescription;
 

@@ -10,6 +10,7 @@ public class ConstantsClass {
     public static final String CURLY_BRACE_OPEN = "{\n";
     public static final String CURLY_BRACE_CLOSE = "\n}";
     public static final String CARRIAGE = "\n";
-    public static final Integer ONE = 1;
+    public static final Integer TWO_INT_ARRAY_AND_COLLECTION_RECURSIONS = 2;
+    public static final Integer ONE_INT_MAP_RECURSION= 1;
     public static final Integer ZERO = 0;
 }
