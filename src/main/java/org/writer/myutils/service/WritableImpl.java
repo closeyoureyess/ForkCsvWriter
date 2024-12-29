@@ -20,9 +20,9 @@ import static org.writer.myutils.other.exceptions.DescriptionUserExeption.LOCAL_
 
 /**
  * Класс содержит методы, позволяющие записать информацию в файл с расширением .csv
- *
+ * <p>
  * Алгоритм работы методов такой:
- *
+ * <p>
  * 1.Вызывается метод writeToFile()
  * 2.Класс, которым наполнен список, который передается для записи в отчет, проверяется на наличие аннотации @CsvClass, которая помечает класс
  * как сущность, с которой будет работать библиотека
@@ -33,16 +33,16 @@ import static org.writer.myutils.other.exceptions.DescriptionUserExeption.LOCAL_
  * полей, корректно записать их в csv
  * 6.Для каждого поля, которое перебирается во вложенном цикле, вызывается метод determineTypeField(), чтобы определить, какого типа переданное поле
  * и как с ним далее работать
- *
+ * <p>
  * А)Для простых типов:
  * 7.Если выясняется, что объект-поле  - это простой тип(Integer, Enum и т.д) - преобразовать его в String, записать в локальный List, из которого
  * далее будет осуществлять запись информации в csv-файл
- *
+ * <p>
  * Б)Для массивов:
  * 8.При идентификации поля как массива, вызывается метод iterableItemsArrayField() для того, чтобы понять, из каких элементов он состоит и для
  * перебора значений массива. После того, как это будет выполнено, результирующий массив String[], состоящий из элементов перебранного массива,
  * будет записан в локальный List
- *
+ * <p>
  * 9. В методе iterableItemsArrayField(), из объекта, который, как выяснилось, является массивом, достается первый элемент. Этот элемент с помощью
  * метода detectArrayPrimitiveOrNotPrimitive() проверяется на то, к какому типу он относится - Integer, Enum и т.д, или это объект
  * -Если это простой тип(метод detectArrayPrimitiveOrNotPrimitive() возвращает true), тогда происходит получение элементов массива в цикле,
@@ -52,7 +52,7 @@ import static org.writer.myutils.other.exceptions.DescriptionUserExeption.LOCAL_
  * для того, чтобы проанализировать поля этого объекта, записать их в List-результат. После того, как заканчиваются рекурсии и цикл, метод iterableItemsArrayField()
  * возвращает Optional с null внутри. В методе determineTypeField() этот null корректно обрабатывается, некорректная запись null в локальный
  * List с данными не происходит
- *
+ * <p>
  * В)Для коллекций:
  * 10.При идентификации поля как коллекции, вызывается метод iterableItemsCollectionField() для того, чтобы понять, что именно это за реализация коллекции
  * 11.Если выясняется, что это, например, List, вызывается handleItemsListField(), который выясняет, состоит ли коллекция из простых типов или
@@ -64,22 +64,21 @@ import static org.writer.myutils.other.exceptions.DescriptionUserExeption.LOCAL_
  * localListDataForMap
  * После того, как перебор окончен, вызывается метод glueMapStringArrayKeyValue(), который производит запись элементов в массив-результат, т.е
  * например - индекс 0 - ключ, индекс 1 - значение
- *
+ * <p>
  * Г)Для объектов:
  * 12.Если поле не принадлежит ни к одному из типов и понятно, что это объект,, в последней ветке else в методе determineTypeField(),
  * рекурсирвно вызывается метод iterableObjectAndHisFields() из п.5 для перебора всех полей объекта, записи их в List-результат
- *
+ * <p>
  * 13.Пункт 5 - после того, как перебор очередных полей очередного объекта закончен, если есть нужные флаги(основной смысл, что метод должен
  * срабатывать только тогда, когда это основной поток, а не внутреннии рекурсии), вызывается метод addSemicolonOrCarriageForResultRow(), который
  * проставляет символ ';' или перенос строки '\n' в последний элемент из локального List
- *
+ * <p>
  * 14.Когда все объекты проитерированы, в методе writeToFile() вызывается метод writeDataToCsv, который записывает информацию в csv-файл
  */
 @Slf4j
 public class WritableImpl implements Writable {
 
     private DataActions dataActions = new DataActionsImpl();
-
     private List<String> listData = new ArrayList<>();
     private List<String> localListDataForMap = new ArrayList<>();
 
@@ -92,7 +91,8 @@ public class WritableImpl implements Writable {
             Map<Object, Field[]> mapMapWithObjectAndArrayFields = dataActions.createMapWithObjectAndArrayFields(data);
             iterableObjectAndHisFields(mapMapWithObjectAndArrayFields, ZERO, TWO_INT_ARRAY_AND_COLLECTION_RECURSIONS);
             writeDataToCsv(listData, fileName);
-        } catch (IllegalAccessException | IOException | EntitiesForParseNotFoundExceptions | InvalidFormatFileException |
+        } catch (IllegalAccessException | IOException | EntitiesForParseNotFoundExceptions |
+                 InvalidFormatFileException |
                  VariableNotExistsException e) {
             log.error("Возникла ошибка: " + e);
         }
@@ -101,7 +101,7 @@ public class WritableImpl implements Writable {
     /**
      * Метод для записи собранной информации в файл
      *
-     * @param data List со строкой, готовой для записи
+     * @param data     List со строкой, готовой для записи
      * @param fileName Имя файла, в который будет записана информация
      * @throws IOException
      */
@@ -137,7 +137,22 @@ public class WritableImpl implements Writable {
             }
             if (additionalRecursionFlag != null && additionalRecursionFlag.equals(TWO_INT_ARRAY_AND_COLLECTION_RECURSIONS)
                     && recursionFlag.equals(ZERO)) {
-                addSemicolonOrCarriageForResultRow(listData);
+                String lastElement = removeExcessCommaFromLastElement(listData);
+                addSemicolonOrCarriageForResultRow(listData, lastElement);
+            }
+        }
+    }
+
+    /**
+     * Метод, проверяющий, есть ли в результирующем List дубли запятых
+     *
+     * @param listWithData List с информацией, полученной из проверенных объектов
+     */
+    private void removeDuplicatesCommaFromList(List<String> listWithData) {
+        for (int i = 0; i < listWithData.size(); i++) {
+            String element = listWithData.get(i);
+            if (element.contains(DUPL_COMMA)) {
+                listWithData.set(i, element.replace(DUPL_COMMA, COMMA));
             }
         }
     }
@@ -147,13 +162,39 @@ public class WritableImpl implements Writable {
      *
      * @param listWithData List с информацией, полученной из проверенных объектов
      */
-    private void addSemicolonOrCarriageForResultRow(List<String> listWithData) {
-        String lastElement = listWithData.get(listWithData.size() - 1);
+    private void addSemicolonOrCarriageForResultRow(List<String> listWithData, String lastElement) {
         if (lastElement != null && lastElement.contains(SEMICOLON) && !lastElement.contains(CARRIAGE)) {
             listWithData.set(listWithData.size() - 1, lastElement + CARRIAGE);
         } else if (lastElement != null && !lastElement.contains(SEMICOLON)) {
             listWithData.set(listWithData.size() - 1, lastElement + SEMICOLON + CARRIAGE);
         }
+    }
+
+    /**
+     * Метод, удаляющий лишнюю запятую из последнего элемента List
+     *
+     * @param listWithData List с информацией, полученной из проверенных объектов
+     * @return String с удаленной лищней запятой из последнего элемента
+     */
+    private String removeExcessCommaFromLastElement(List<String> listWithData) {
+        String lastElement = listWithData.get(listWithData.size() - 1);
+        if (lastElement != null && lastElement.contains(COMMA)) {
+            int lengthLast = lastElement.length();
+            if (lengthLast > 1) {
+                int lastIndex;
+                int lastIndex2;
+                if (lastElement.contains(SEMICOLON)) {
+                    lastIndex = lengthLast - 2;
+                } else {
+                    lastIndex = lengthLast - 1;
+                }
+                lastIndex2 = lastElement.lastIndexOf(COMMA);
+                if (lastIndex == lastIndex2) {
+                    lastElement = new StringBuilder(lastElement).deleteCharAt(lastIndex).toString();
+                }
+            }
+        }
+        return lastElement;
     }
 
     /**
@@ -170,18 +211,25 @@ public class WritableImpl implements Writable {
         Optional<String[]> arrayWithItems;
         if (classFieldObject instanceof Number || classFieldObject instanceof String || classFieldObject instanceof Boolean ||
                 classFieldObject instanceof Character || classFieldObject instanceof Enum) { // Объект - простой тип?
-            if (recursionFlag.equals(ZERO)) {
+            if (recursionFlag == null) {
+                listData.add(classFieldObject + COMMA);
+            } else if (recursionFlag.equals(ZERO)) {
                 listData.add(classFieldObject + SEMICOLON);
             } else if (recursionFlag.equals(ONE_INT_MAP_RECURSION)) { // Если перебирается элемент из Map
-                localListDataForMap.add(classFieldObject.toString());
+                localListDataForMap.add(classFieldObject.toString()/* + COMMA*/);
             }
         } else if (typeClassField.isArray()) { // Объект - массив?
             arrayWithItems = iterableItemsArrayField(classFieldObject, recursionFlag); // Определить тип объектов в массиве, перебрать массив
             arrayWithItems.ifPresent(items -> {
-                String resultRow = String.join(COMMA, items) + SEMICOLON;
-                if (recursionFlag.equals(ZERO)) {
+                String resultRow;
+                if (recursionFlag == null) {
+                    resultRow = String.join(COMMA, items) + COMMA;
+                    listData.add(resultRow);
+                } else if (recursionFlag.equals(ZERO)) {
+                    resultRow = String.join(COMMA, items) + SEMICOLON;
                     listData.add(resultRow);
                 } else if (recursionFlag.equals(ONE_INT_MAP_RECURSION)) { // Если перебираются ключ/значение Map
+                    resultRow = String.join(COMMA, items)/* + SEMICOLON*/;
                     localListDataForMap.add(resultRow);
                 }
             });
@@ -262,29 +310,30 @@ public class WritableImpl implements Writable {
             IllegalAccessException, VariableNotExistsException {
         Optional<?> optionalObject = setFromField.stream().findFirst();
         Object objectFromField;
+        String[] elementsFromArray = null;
         if (optionalObject.isPresent()) {
             objectFromField = optionalObject.get();
         } else {
             throw new VariableNotExistsException(LOCAL_VARIABLE_IS_EMPTY.getEnumDescription());
         }
-        String[] elementsFromArray;
         boolean typeMySet = detectArrayPrimitiveOrNotPrimitive(objectFromField);
         if (typeMySet) {
             elementsFromArray = setFromField.stream().map(Object::toString).toArray(String[]::new);
         } else {
-            elementsFromArray = new String[setFromField.size()];
             List<?> listFromField = setFromField.stream().toList();
+            callRecursionForHandleObjectArray(listFromField, recursionFlag, null);
+            /*elementsFromArray = new String[setFromField.size()];
             for (int a = 0; a < elementsFromArray.length; a++) {
                 Object arraysObject = listFromField.get(a); // Получить 1 объект из листа
                 List<?> listWithListsObject = List.of(arraysObject); // Сделать List с объектом
                 callRecursionForHandleObjectArray(listWithListsObject, recursionFlag, null);
-            }
+            }*/
         }
         return elementsFromArray;
     }
 
     /**
-     * Метод, позволяющий достать содержимое из Map, если простые типы -
+     * Метод, позволяющий достать содержимое из Map, ключи и значения записать в массив String[], в виде индекс 0 - ключ, индекс 1 - значение
      *
      * @param mapFromField Map, являющийся полем в классе
      * @return Массив строк с перебранными элементами массива
@@ -293,6 +342,8 @@ public class WritableImpl implements Writable {
      */
     private String[] handleItemsMapField(Map<?, ?> mapFromField) throws
             IllegalAccessException, VariableNotExistsException {
+        var listWithKeys = new ArrayList<>();
+        var listWithValues = new ArrayList<>();
         Object key;
         Object value;
         String[] arrayWithKey = null;
@@ -301,11 +352,12 @@ public class WritableImpl implements Writable {
         for (Map.Entry<?, ?> mapEntry : mapFromField.entrySet()) {
             key = mapEntry.getKey();
             value = mapEntry.getValue();
-            List<?> listWithKeys = List.of(key);
-            List<?> listWithValues = List.of(value);
-            arrayWithKey = handleItemsListField(listWithKeys, ONE_INT_MAP_RECURSION); // Разобрать ключ(примитив или объект, если второе - пройтись по полям
-            arrayWithValue = handleItemsListField(listWithValues, ONE_INT_MAP_RECURSION); // Разобрать значение
+            listWithKeys.add(key);
+            listWithValues.add(value);
         }
+        arrayWithKey = handleItemsListField(listWithKeys, ONE_INT_MAP_RECURSION); // Разобрать ключ(примитив или объект, если второе - пройтись по полям
+        arrayWithValue = handleItemsListField(listWithValues, ONE_INT_MAP_RECURSION); // Разобрать значениe
+
         arrayWithGlueKeyValue = glueMapStringArrayKeyValue(arrayWithKey, arrayWithValue, localListDataForMap);
         return arrayWithGlueKeyValue;
     }
@@ -314,7 +366,7 @@ public class WritableImpl implements Writable {
      * Метод, склеивающий массив строк с ключами и значениями в единный массив строк, либо же достающий из локального List записанные туда
      * значения, которые также записываются в массив-результат
      *
-     * @param arrayWithKey Массив String с ключами из первоначальной Map
+     * @param arrayWithKey   Массив String с ключами из первоначальной Map
      * @param arrayWithValue Массив String со значениями из первоначальной Map
      * @param listDataForMap List для записи ключа/значения(либо и тех, и других вместе), если ключ и значение - не простые типы, а объекты
      * @return
@@ -326,7 +378,7 @@ public class WritableImpl implements Writable {
         int countValue = 1;
         if (!listDataForMap.isEmpty()) { // List  для записи ключа/значения не пустой? Если да, это означает, что в процессе рекурсии туда были записаны значения
             if (arrayWithKey != null && arrayWithValue == null) { // Массив строк arrayWithKey - это означает, что ключ в Map - простой тип. Массив строк arrayWithValue пустой - это означает, что значение состоит из объектов
-                arrayWithGlueKeyValue = new String[arrayWithKey.length];
+                arrayWithGlueKeyValue = new String[arrayWithKey.length + listDataForMap.size()];
                 while (usualCount < arrayWithKey.length) {
                     arrayWithGlueKeyValue[countKey] = arrayWithKey[usualCount];
                     arrayWithGlueKeyValue[countValue] = listDataForMap.get(usualCount); // Записать значения, собранные в List, в массив строк
@@ -335,7 +387,7 @@ public class WritableImpl implements Writable {
                     usualCount++;
                 }
             } else if (arrayWithKey == null && arrayWithValue != null) { // То же, что описано выше, но наоборот - значения arrayWithValue - простые типы, arrayWithKey - объекты
-                arrayWithGlueKeyValue = new String[arrayWithValue.length];
+                arrayWithGlueKeyValue = new String[arrayWithValue.length + listDataForMap.size()];
                 while (usualCount < arrayWithValue.length) {
                     arrayWithGlueKeyValue[countKey] = listDataForMap.get(usualCount);
                     arrayWithGlueKeyValue[countValue] = arrayWithValue[usualCount];
@@ -343,19 +395,30 @@ public class WritableImpl implements Writable {
                     countValue++;
                     usualCount++;
                 }
+            } else {
+                arrayWithGlueKeyValue = new String[listDataForMap.size()];
+                usualCount = 1;
+                while (usualCount < listDataForMap.size()) {
+                    arrayWithGlueKeyValue[countKey] = listDataForMap.get(countKey);
+                    arrayWithGlueKeyValue[countValue] = listDataForMap.get(countValue);
+                    countKey++;
+                    countValue++;
+                    usualCount++;
+                }
             }
-            listDataForMap.clear();
-        }
-        if (arrayWithKey != null && arrayWithValue != null) { // Массивы с ключами, значениями не пустые? Это означает, что ключи из значения в этой Map - простые типы
-            arrayWithGlueKeyValue = new String[arrayWithKey.length + arrayWithValue.length];
-            while (usualCount < arrayWithKey.length) {
-                arrayWithGlueKeyValue[countKey] = arrayWithKey[usualCount];
-                arrayWithGlueKeyValue[countValue] = arrayWithValue[usualCount];
-                countKey++;
-                countValue++;
-                usualCount++;
+        } else {
+            if (arrayWithKey != null && arrayWithValue != null) { // Массивы с ключами, значениями не пустые? Это означает, что ключи из значения в этой Map - простые типы
+                arrayWithGlueKeyValue = new String[arrayWithKey.length + arrayWithValue.length];
+                while (usualCount < arrayWithKey.length) {
+                    arrayWithGlueKeyValue[countKey] = arrayWithKey[usualCount];
+                    arrayWithGlueKeyValue[countValue] = arrayWithValue[usualCount];
+                    countKey++;
+                    countValue++;
+                    usualCount++;
+                }
             }
         }
+        listDataForMap.clear();
         return arrayWithGlueKeyValue; // Массив строк, состоящий из пар ключ-значение(Пример - индекс 0 ключ, индекс 1 значение)
     }
 
@@ -384,7 +447,7 @@ public class WritableImpl implements Writable {
                 for (int a = 0; a < lengthUnknownArray; a++) {
                     Object arraysObject = Array.get(arrayObject, a); // Получить 1 объект из массива
                     List<?> listWithArraysObject = List.of(arraysObject); // Сделать List с объектом
-                    callRecursionForHandleObjectArray(listWithArraysObject, recursionFlag, null); // Разобрать объект, т.е его поля
+                    callRecursionForHandleObjectArray(listWithArraysObject, null, null); // Разобрать объект, т.е его поля
                 }
             }
             return Optional.ofNullable(elementsFromArray);
