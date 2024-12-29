@@ -144,20 +144,6 @@ public class WritableImpl implements Writable {
     }
 
     /**
-     * Метод, проверяющий, есть ли в результирующем List дубли запятых
-     *
-     * @param listWithData List с информацией, полученной из проверенных объектов
-     */
-    private void removeDuplicatesCommaFromList(List<String> listWithData) {
-        for (int i = 0; i < listWithData.size(); i++) {
-            String element = listWithData.get(i);
-            if (element.contains(DUPL_COMMA)) {
-                listWithData.set(i, element.replace(DUPL_COMMA, COMMA));
-            }
-        }
-    }
-
-    /**
      * Метод, проставляющий точку с запятой, каретку в конец строки
      *
      * @param listWithData List с информацией, полученной из проверенных объектов
